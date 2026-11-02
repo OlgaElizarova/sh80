@@ -1,0 +1,419 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Своя игра для учащихся 9-11 классов: Финансовый поединок</title>
+  <style>
+    :root {
+      --primary: #2c3e50;
+      --accent: #f39c12;
+      --bg: #ecf0f1;
+      --cell-bg: #ffffff;
+      --text: #333;
+      
+      --cost-100: #e6f3ff;
+      --cost-200: #d4edda;
+      --cost-300: #fff3cd;
+      --cost-400: #ffe6cc;
+      --cost-500: #f8d7da;
+      
+      --played-bg: #ffffff;
+      --modal-bg: rgba(0,0,0,0.6);
+      --header-bg: #16a085;
+      --rules-btn-bg: #34495e;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 { margin: 0; color: var(--primary); }
+    
+    .rules-btn {
+      background: var(--rules-btn-bg);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .rules-btn:hover { background: #2c3e50; }
+
+    .scoreboard {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .player-box { flex: 1; text-align: center; }
+    .player-name { font-weight: bold; font-size: 1.1em; }
+    .player-score { font-size: 1.4em; color: var(--accent); }
+    .current-turn { color: var(--accent); font-weight: bold; margin-left: 10px; }
+
+    .board-container { overflow-x: auto; max-width: 100%; }
+    table { border-collapse: collapse; width: 100%; min-width: 800px; background: var(--cell-bg); }
+    th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: center; vertical-align: middle; }
+    th { background: var(--header-bg); color: white; }
+
+    td button {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 1em;
+      color: var(--primary);
+      padding: 4px;
+      transition: background 0.2s;
+    }
+    
+    .cost-100 { background-color: var(--cost-100); }
+    .cost-200 { background-color: var(--cost-200); }
+    .cost-300 { background-color: var(--cost-300); }
+    .cost-400 { background-color: var(--cost-400); }
+    .cost-500 { background-color: var(--cost-500); }
+
+    td button:hover:not(:disabled) { opacity: 0.8; transform: scale(1.02); }
+    td button:disabled { 
+      background-color: var(--played-bg) !important; 
+      color: #ccc; 
+      cursor: not-allowed; 
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    /* Модальные окна (игра и правила) */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--modal-bg); display: none;
+      justify-content: center; align-items: center; z-index: 1000;
+    }
+    .modal {
+      background: white; padding: 20px; border-radius: 10px;
+      max-width: 600px; width: 90%; text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      position: relative;
+    }
+    .close-modal-btn {
+      position: absolute;
+      top: 10px; right: 15px;
+      background: none; border: none;
+      font-size: 1.5em; cursor: pointer; color: #999;
+    }
+    .close-modal-btn:hover { color: #333; }
+
+    .question-image { max-width: 100%; height: auto; margin: 15px 0; border-radius: 6px; }
+    .controls { margin-top: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    button.action-btn {
+      padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+    }
+    .btn-correct { background: #2ecc71; color: white; }
+    .btn-wrong { background: #e74c3c; color: white; }
+    .btn-ok { background: #3498db; color: white; }
+    
+    #correctAnswerDisplay {
+      margin-top: 15px;
+      padding: 10px;
+      background: #e8f4fd;
+      border: 1px dashed #3498db;
+      border-radius: 5px;
+      display: none;
+      font-weight: bold;
+      color: #2980b9;
+    }
+
+    /* Стили для блока правил */
+    .rules-list { text-align: left; margin: 0 0 15px 20px; }
+    .rules-list li { margin-bottom: 8px; line-height: 1.4; }
+    .rules-highlight { font-weight: bold; color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Своя игра для учащихся 9-11 классов: Финансовый поединок &#9876</h1>
+    <button class="rules-btn" onclick="openRules()">Правила игры</button>
+  </div>
+
+  <div class="scoreboard">
+    <div class="player-box">
+      <div class="player-name">Игрок 1</div>
+      <div class="player-score" id="score1">0</div>
+    </div>
+    <div>Ход: <span class="current-turn" id="turnText">Игрока 1</span></div>
+    <div class="player-box">
+      <div class="player-name">Игрок 2</div>
+      <div class="player-score" id="score2">0</div>
+    </div>
+  </div>
+
+  <div class="board-container">
+    <table id="gameBoard">
+      <thead>
+        <tr>
+          <th>Тема</th>
+          <th>100</th> <th>200</th> <th>300</th> <th>400</th> <th>500</th>
+        </tr>
+      </thead>
+      <tbody id="boardBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Модальное окно вопроса -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <button class="close-modal-btn" onclick="closeModal()">&times;</button>
+      <h2 id="modalTopic">Тема</h2>
+      <p id="modalCost" style="color: var(--accent); font-size: 1.2em;"></p>
+      <img id="modalImage" src="" alt="Иллюстрация" class="question-image" />
+      <p id="modalQuestion">Текст вопроса</p>
+      
+      <div id="correctAnswerDisplay"></div>
+
+      <div class="controls">
+        <button class="action-btn btn-correct" onclick="answerQuestion(true)">Верно</button>
+        <button class="action-btn btn-wrong" onclick="answerQuestion(false)">Неверно</button>
+        <button class="action-btn btn-ok" onclick="confirmAnswer()">ОК</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно ПРАВИЛА -->
+  <div class="modal-overlay" id="rulesOverlay">
+    <div class="modal">
+      <button class="close-modal-btn" onclick="closeRules()">&times;</button>
+      <h2>Правила игры</h2>
+      <ul class="rules-list">
+        <li>В игре участвуют <span class="rules-highlight">два игрока</span>.</li>
+        <li>На игровом поле — <span class="rules-highlight">7 тем</span> и <span class="rules-highlight">5 уровней сложности</span> (от 100 до 500 баллов).</li>
+        <li>Игроки ходят по очереди. Текущий игрок выбирает вопрос на поле.</li>
+        <li>После открытия вопроса игрок отвечает: <span class="rules-highlight">«Верно»</span> или <span class="rules-highlight">«Неверно»</span>.</li>
+        <li>Если ответ правильный — игрок <span class="rules-highlight">получает баллы</span>, если неправильный — <span class="rules-highlight">теряет их</span>.</li>
+        <li>Правильный ответ появляется сразу после выбора. Чтобы продолжить игру, нужно нажать <span class="rules-highlight">«ОК»</span> — тогда ответ скроется, окно закроется и ход перейдёт сопернику.</li>
+        <li>Ячейка с выбранным вопросом <span class="rules-highlight">блокируется</span> и становится белой — этот вопрос больше нельзя выбрать.</li>
+        <li>Игра продолжается, пока не будут разыграны все вопросы. Побеждает тот, у кого больше баллов.</li>
+      </ul>
+      <div class="controls">
+        <button class="action-btn btn-ok" onclick="closeRules()">Понятно</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const topics = [
+      {
+        name: "Доходы и расходы",
+        questions: [
+          { cost: 100, q: "Что такое обязательные расходы семьи?", ans: "Это траты, без которых нельзя обойтись (аренда, ЖКХ, еда, транспорт).", img: "https://i.ibb.co/bgTf3jH2/1.png" },
+          { cost: 200, q: "Какой доход считается регулярным?", ans: "Зарплата, пенсия, стипендия — выплаты, которые приходят каждый месяц.", img: "https://i.ibb.co/WN1K5VBv/2.png" },
+          { cost: 300, q: "Приведи пример переменных расходов.", ans: "Развлечения, отпуск, покупка одежды — траты, которые бывают не каждый месяц.", img: "https://i.ibb.co/C3vLWyn8/3.jpg" },
+          { cost: 400, q: "Как рассчитать месячный бюджет семьи?", ans: "Нужно сложить все доходы и вычесть из них все обязательные и планируемые расходы.", img: "https://i.ibb.co/gMRnVsJG/4.jpg"},
+          { cost: 500, q: "Почему важно вести учёт доходов и расходов?", ans: "Чтобы понимать, куда уходят деньги, избегать долгов и планировать крупные покупки.", img: "https://i.ibb.co/9mCVdwtp/5.png"}
+        ]
+      },
+      {
+        name: "Банковские услуги",
+        questions: [
+          { cost: 100, q: "Что такое банковская карта?", ans: "Пластиковый носитель, привязанный к банковскому счету для безналичных расчетов.", img: "https://i.ibb.co/9HZPR5tG/1800-credit-cards-Kc-Hba-NOa-DFbhim-Omha.jpg" },
+          { cost: 200, q: "Зачем нужен ПИН-код?", ans: "Для подтверждения личности владельца карты при снятии наличных или оплате.", img: "https://i.ibb.co/XZNbjjyN/scale-1200.jpg" },
+          { cost: 300, q: "В чём разница между дебетовой и кредитной картой?", ans: "Дебетовая — это ваши деньги. Кредитная — это деньги банка, которые нужно вернуть.", img: "https://i.ibb.co/ynX4Kg70/Izob-Zapisi-Otlicie-Creditnoy-Idebetovoq-Carty.jpg"  },
+          { cost: 400, q: "Что такое онлайн-банкинг?", ans: "Сервис для управления финансами через интернет (переводы, оплата счетов).", img: "https://i.ibb.co/fVDKWF6K/lj-T9FAf.jpg" },
+          { cost: 500, q: "Какие риски есть у онлайн-платежей?", ans: "Мошенничество, утечка данных, ошибочный перевод. Защита: не сообщать коды, проверять сайты.", img: "https://i.ibb.co/4nn5WWdF/1-5.jpg" }
+        ]
+      },
+      {
+        name: "Налоги",
+        questions: [
+          { cost: 100, q: "Кто платит налоги?", ans: "Физические и юридические лица, получающие доход или владеющие имуществом.", img: "https://i.ibb.co/DPRgT200/1.jpg" },
+          { cost: 200, q: "Назови один налог для граждан.", ans: "НДФЛ (налог на доходы физических лиц) или налог на имущество.", img: "https://i.ibb.co/20brgnVB/2.jpg"},
+          { cost: 300, q: "Зачем государству нужны налоги?", ans: "На налоги строятся школы, больницы, дороги, выплачивается пенсия.", img: "https://i.ibb.co/MDYpd1Wf/3.png" },
+          { cost: 400, q: "Что такое налоговая декларация?", ans: "Документ, в котором человек сообщает государству о своих доходах и налогах.", img:"https://i.ibb.co/Lz6WRsh4/4.png"},
+          { cost: 500, q: "Как налоговая узнает о доходах?", ans: "От работодателей (2-НДФЛ), из деклараций, от банков (по вкладам).", img: "https://i.ibb.co/ZRzXM70G/5.jpg"}
+        ]
+      },
+      {
+        name: "Кредиты и займы",
+        questions: [
+          { cost: 100, q: "Что значит взять кредит?", ans: "Взять деньги в долг у банка с обязательством вернуть их с процентами.", img: "https://i.ibb.co/MxShvVL3/1.jpg" },
+          { cost: 200, q: "Что такое процент по кредиту?", ans: "Плата банку за пользование его деньгами, выражается в процентах годовых.", img: "https://i.ibb.co/5hJPdrQB/2.jpg" },
+          { cost: 300, q: "Почему кредит может быть опасным?", ans: "Если не сможешь платить, долг вырастет из-за процентов и штрафов.", img: "https://i.ibb.co/G4vH2XB0/3.jpg" },
+          { cost: 400, q: "Что такое ежемесячный платёж?", ans: "Сумма, которую нужно платить банку каждый месяц для погашения кредита.", img: "https://i.ibb.co/35xMqLyG/4.jpg" },
+          { cost: 500, q: "Как выбрать надёжный банк?", ans: "Проверить лицензию ЦБ РФ, рейтинг банка, отзывы клиентов.", img: "https://i.ibb.co/9mvsDxwP/5.jpg"}
+        ]
+      },
+      {
+        name: "Финансовое мошенничество",
+        questions: [
+          { cost: 100, q: "Что такое фишинг?", ans: "Вид мошенничества, когда злоумышленники выманивают данные, притворяясь банком.", img: "https://i.ibb.co/Z1WgVV8w/1.jpg" },
+          { cost: 200, q: "Как понять, что письмо — спам?", ans: "Нет личного обращения, странные ссылки, требование срочно ввести данные.", img: "https://i.ibb.co/LzTN297J/2.jpg" },
+          { cost: 300, q: "Что делать, если просят данные карты по телефону?", ans: "Положить трубку и позвонить в банк по официальному номеру.", img: "https://i.ibb.co/LDpXwWV0/3.jpg" },
+          { cost: 400, q: "Что такое двухфакторная аутентификация?", ans: "Подтверждение входа двумя способами (пароль + код из СМС).", img: "https://i.ibb.co/Rpj5158X/4.png" },
+          { cost: 500, q: "Как защитить деньги в интернете?", ans: "Использовать сложные пароли, не переходить по подозрительным ссылкам, обновлять антивирусы.", img: "https://i.ibb.co/pBZgJ6rq/5.jpg"  }
+        ]
+      },
+      {
+        name: "Инвестиции и сбережения",
+        questions: [
+          { cost: 100, q: "Зачем люди копят деньги?", ans: "На крупные покупки, на «подушку безопасности», на будущее.", img: "https://i.ibb.co/LhQ5FYcB/1.jpg" },
+          { cost: 200, q: "Что такое вклад в банке?", ans: "Деньги, которые вы отдаёте банку на хранение под проценты.", img: "https://i.ibb.co/RkRyR21d/2.jpg"  },
+          { cost: 300, q: "Чем отличаются сбережения и инвестиции?", ans: "Сбережения — низкий риск, низкая доходность. Инвестиции — риск выше, доходность выше.", img: "https://i.ibb.co/G3tfsbvW/3.jpg" },
+          { cost: 400, q: "Что такое риск в инвестициях?", ans: "Вероятность потерять часть или все вложенные деньги.", img: "https://i.ibb.co/C5Fd0rP1/4.jpg" },
+          { cost: 500, q: "План накоплений на велосипед (15 000 ₽)?", ans: "Например, откладывать по 1250 ₽ в месяц — через год будет нужная сумма.", img: "https://i.ibb.co/Jj2XfNnr/5.jpg" }
+        ]
+      },
+      {
+        name: "Валюта и обмен",
+        questions: [
+          { cost: 100, q: "Что такое валюта?", ans: "Денежная единица страны (рубль, доллар, евро и т.д.).", img: "https://i.ibb.co/VW9DQL5H/1.jpg"},
+          { cost: 200, q: "Где меняют валюту?", ans: "В банках, обменных пунктах, иногда в аэропортах и отелях.", img: "https://i.ibb.co/LXNDkGw0/2.jpg"  },
+          { cost: 300, q: "Что такое курс валюты?", ans: "Цена одной валюты, выраженная в другой (например, сколько рублей за доллар).", img: "https://i.ibb.co/vC7KCcRj/3.png"  },
+          { cost: 400, q: "Почему курс меняется?", ans: "Из‑за спроса и предложения, политики ЦБ, экономической ситуации в стране.", img: "https://i.ibb.co/fzxMBj7w/4.png" },
+          { cost: 500, q: "Что учесть при поездке за границу?", ans: "Курс обмена, комиссии, лимиты на вывоз наличных, возможность безналичной оплаты.", img: "https://i.ibb.co/B5mMR467/5.jpg" }
+        ]
+      }
+    ];
+
+    let currentPlayer = 1;
+    let score1 = 0;
+    let score2 = 0;
+    let answerShown = false;
+
+    function initBoard() {
+      const tbody = document.getElementById('boardBody');
+      tbody.innerHTML = '';
+      topics.forEach((topic, rowIdx) => {
+        const tr = document.createElement('tr');
+        const th = document.createElement('th');
+        th.textContent = topic.name;
+        tr.appendChild(th);
+        topic.questions.forEach((q, colIdx) => {
+          const td = document.createElement('td');
+          const btn = document.createElement('button');
+          btn.textContent = q.cost;
+          btn.className = `cost-${q.cost}`;
+          btn.onclick = () => openQuestion(rowIdx, colIdx);
+          td.appendChild(btn);
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    let activeQuestion = null;
+
+    function openQuestion(row, col) {
+      activeQuestion = { row, col };
+      const q = topics[row].questions[col];
+      document.getElementById('modalTopic').textContent = topics[row].name;
+      document.getElementById('modalCost').textContent = q.cost + ' баллов';
+      document.getElementById('modalQuestion').textContent = q.q;
+      document.getElementById('modalImage').src = q.img;
+
+      answerShown = false;
+      const answerEl = document.getElementById('correctAnswerDisplay');
+      answerEl.style.display = 'none';
+      answerEl.textContent = '';
+
+      document.getElementById('modalOverlay').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').style.display = 'none';
+      activeQuestion = null;
+    }
+
+    function closeRules() {
+      document.getElementById('rulesOverlay').style.display = 'none';
+    }
+
+    function openRules() {
+      document.getElementById('rulesOverlay').style.display = 'flex';
+    }
+
+    // Закрытие по клику вне окна
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'modalOverlay' || e.target.id === 'rulesOverlay') {
+        e.target.style.display = 'none';
+        if (e.target.id === 'modalOverlay') activeQuestion = null;
+      }
+    });
+
+    function showCorrectAnswer(text) {
+      const el = document.getElementById('correctAnswerDisplay');
+      el.textContent = 'Правильный ответ: ' + text;
+      el.style.display = 'block';
+      answerShown = true;
+    }
+
+    function answerQuestion(isCorrect) {
+      if (!activeQuestion) return;
+      const { row, col } = activeQuestion;
+      const points = topics[row].questions[col].cost;
+      const correctAnswerText = topics[row].questions[col].ans;
+
+      showCorrectAnswer(correctAnswerText);
+
+      if (isCorrect) {
+        if (currentPlayer === 1) score1 += points;
+        else score2 += points;
+      } else {
+        if (currentPlayer === 1) score1 -= points;
+        else score2 -= points;
+      }
+
+      updateScores();
+
+      const rows = document.querySelectorAll('#boardBody tr');
+      if (rows.length > row) {
+        const cols = rows[row].querySelectorAll('td');
+        if (cols.length > col) {
+          const btn = cols[col].querySelector('button');
+          if (btn) btn.disabled = true;
+        }
+      }
+      // Не закрываем окно — ждём «ОК»
+    }
+
+    function confirmAnswer() {
+      const answerEl = document.getElementById('correctAnswerDisplay');
+      answerEl.style.display = 'none';
+      answerEl.textContent = '';
+      answerShown = false;
+
+      closeModal();
+      switchPlayer();
+    }
+
+    function switchPlayer() {
+      currentPlayer = currentPlayer === 1 ? 2 : 1;
+      document.getElementById('turnText').textContent = `Игрока ${currentPlayer}`;
+    }
+
+    function updateScores() {
+      document.getElementById('score1').textContent = score1;
+      document.getElementById('score2').textContent = score2;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initBoard();
+    });
+  </script>
+<img src="https://i.ibb.co/Mk3TwNBs/image-3.png" alt="image 3" border="0" align=right>
+<p><br>
+<font size=3> Автор разработки: учитель информатики МБОУ г.Иркутска СОШ №80 Елизарова Ольга Николаевна</font>
+
+</body>
+</html>
